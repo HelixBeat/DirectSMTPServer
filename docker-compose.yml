@@ -1,0 +1,23 @@
+version: '3.8'
+
+services:
+  directsmtp:
+    build: .
+    ports:
+      - "587:587"  # SMTP Submission port - REQUIRED
+      # Port 25 not needed for DirectSMTP Server
+    volumes:
+      - ./src/main/resources:/app/src/main/resources:ro
+    environment:
+      - JAVA_OPTS=-Xmx512m -Xms256m
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "587"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"

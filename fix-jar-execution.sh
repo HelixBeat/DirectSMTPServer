@@ -1,0 +1,65 @@
+#!/bin/bash
+# Fix JAR execution issues for DirectSMTP Server
+
+echo "=== Fixing JAR Execution Issues ==="
+
+# Step 1: Update pom.xml to use Java 17 and add Maven Shade plugin
+echo "1. Updating pom.xml with Maven Shade plugin..."
+echo "   - Changed Java version from 11 to 17"
+echo "   - Added Maven Shade plugin to create executable JAR"
+echo "   - Set main class to com.directsmtp.DirectSMTPServer"
+
+# Step 2: Rebuild the application
+echo ""
+echo "2. Rebuilding application with correct configuration..."
+echo "Run these commands on your AWS instance:"
+echo ""
+echo "cd /home/ec2-user/DirectSMTPServer"
+echo "mvn clean package -DskipTests"
+echo ""
+
+# Step 3: Fix systemd service
+echo "3. Updating systemd service configuration..."
+echo ""
+echo "The systemd service has been updated to:"
+echo "- Use Java 17 instead of Java 11"
+echo "- Set correct JAVA_HOME environment variable"
+echo "- Remove unnecessary main class parameter (now in JAR manifest)"
+echo ""
+
+# Step 4: Commands to run on AWS instance
+echo "4. Commands to run on AWS instance:"
+echo ""
+echo "# Set JAVA_HOME for current session"
+echo "export JAVA_HOME=/usr/lib/jvm/java-17-amazon-corretto"
+echo "export PATH=\$JAVA_HOME/bin:\$PATH"
+echo ""
+echo "# Verify Java version"
+echo "java -version"
+echo ""
+echo "# Rebuild application"
+echo "cd /home/ec2-user/DirectSMTPServer"
+echo "mvn clean package -DskipTests"
+echo ""
+echo "# Test JAR execution manually"
+echo "java -jar target/DirectSMTPServer-1.0-SNAPSHOT.jar"
+echo ""
+echo "# If manual test works, update and restart service"
+echo "sudo systemctl daemon-reload"
+echo "sudo systemctl restart directsmtp"
+echo "sudo systemctl status directsmtp"
+echo ""
+echo "# Check if port 587 is listening"
+echo "sudo netstat -tlnp | grep :587"
+echo "# or"
+echo "sudo ss -tlnp | grep :587"
+echo ""
+
+echo "=== Key Changes Made ==="
+echo "✅ Updated pom.xml to use Java 17"
+echo "✅ Added Maven Shade plugin for executable JAR"
+echo "✅ Set main class in JAR manifest"
+echo "✅ Updated deployment script for Java 17"
+echo "✅ Fixed systemd service configuration"
+echo ""
+echo "The 'no main manifest attribute' error should be resolved after rebuilding!"

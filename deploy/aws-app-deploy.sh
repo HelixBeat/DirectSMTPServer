@@ -1,0 +1,279 @@
+#!/bin/bash
+# AWS Application Deployment Script for DirectSMTP Server
+
+DOMAIN_NAME="if-else.click"
+SUBDOMAIN="direct.if-else.click"
+APP_DIR="/opt/directsmtp"
+SERVICE_USER="directsmtp"
+
+echo "=== DirectSMTP Server Application Deployment ==="
+echo "Domain: $DOMAIN_NAME"
+echo "Subdomain: $SUBDOMAIN"
+echo ""
+
+# Update system and install dependencies
+install_dependencies() {
+    echo "Installing dependencies..."
+    
+    # Update system
+    sudo yum update -y
+    
+    # Install Java 17
+    sudo yum install -y java-17-amazon-corretto-devel
+    
+    # Install Maven
+    sudo yum install -y maven
+    
+    # Install Git
+    sudo yum install -y git
+    
+    # Install other utilities
+    sudo yum install -y wget curl unzip nc
+    
+    echo "Dependencies installed successfully!"
+}
+
+# Create application user and directories
+setup_application_user() {
+    echo "Setting up application user and directories..."
+    
+    # Create service user
+    sudo useradd -r -s /bin/false -d $APP_DIR $SERVICE_USER
+    
+    # Create application directory
+    sudo mkdir -p $APP_DIR
+    sudo mkdir -p /var/log/directsmtp
+    
+    # Set ownership
+    sudo chown -R $SERVICE_USER:$SERVICE_USER $APP_DIR
+    sudo chown -R $SERVICE_USER:$SERVICE_USER /var/log/directsmtp
+    
+    echo "Application user and directories created!"
+}
+
+# Deploy application code
+deploy_application() {
+    echo "Deploying application code..."
+    
+    # Create temporary directory for deployment
+    TEMP_DIR="/tmp"
+    mkdir -p $TEMP_DIR
+    cd $TEMP_DIR
+    
+    # You'll need to upload your code here
+    echo "Please upload your DirectSMTPServer code to this instance."
+    echo "You can use scp or git clone:"
+    echo ""
+    echo "Option 1 - SCP from local machine:"
+    echo "scp -i your-key.pem -r DirectSMTPServer/ ec2-user@$(curl -s http://169.254.169.254/latest/meta-data/public-ipv4):$TEMP_DIR/"
+    echo ""
+    echo "Option 2 - Git clone (if you have a repository):"
+    echo "git clone https://github.com/yourusername/DirectSMTPServer.git"
+    echo ""
+    
+    read -p "Press Enter after uploading the code..."
+    
+    # Find the application directory
+    if [ -d "DirectSMTPServer" ]; then
+        cd DirectSMTPServer
+    else
+        echo "DirectSMTPServer directory not found. Please ensure code is uploaded."
+        exit 1
+    fi
+    
+    # Build application
+    echo "Building application..."
+    mvn clean package -DskipTests
+    
+    # Copy to application directory
+    sudo cp -r * $APP_DIR/
+    sudo chown -R $SERVICE_USER:$SERVICE_USER $APP_DIR
+    
+    echo "Application deployed successfully!"
+}
+
+# Setup SSL certificate with Let's Encrypt
+setup_ssl_certificate() {
+    echo "Setting up SSL certificate..."
+    
+    # Install certbot
+    sudo yum install -y python3-pip
+    sudo pip3 install certbot
+    
+    # Stop any service that might be using port 80
+    sudo systemctl stop httpd 2>/dev/null || true
+    sudo systemctl stop nginx 2>/dev/null || true
+    
+    # Get certificate
+    echo "Getting SSL certificate for $SUBDOMAIN..."
+    sudo certbot certonly --standalone \
+        -d $SUBDOMAIN \
+        --non-interactive \
+        --agree-tos \
+        --email admin@$DOMAIN_NAME
+    
+    # Convert to PKCS12 format for Java
+    sudo openssl pkcs12 -export \
+        -in /etc/letsencrypt/live/$SUBDOMAIN/fullchain.pem \
+        -inkey /etc/letsencrypt/live/$SUBDOMAIN/privkey.pem \
+        -out $APP_DIR/src/main/resources/direct_cert.p12 \
+        -name "directsmtp" \
+        -passout pass:directsmtp2024
+    
+    # Set proper permissions
+    sudo chown $SERVICE_USER:$SERVICE_USER $APP_DIR/src/main/resources/direct_cert.p12
+    sudo chmod 600 $APP_DIR/src/main/resources/direct_cert.p12
+    
+    # Setup auto-renewal
+    echo "0 12 * * * /usr/local/bin/certbot renew --quiet" | sudo crontab -
+    
+    echo "SSL certificate configured successfully!"
+}
+
+# Create systemd service
+create_systemd_service() {
+    echo "Creating systemd service..."
+    
+    sudo tee /etc/systemd/system/directsmtp.service > /dev/null <<EOF
+[Unit]
+Description=DirectSMTP Server
+After=network.target
+
+[Service]
+Type=simple
+User=$SERVICE_USER
+Group=$SERVICE_USER
+WorkingDirectory=$APP_DIR
+ExecStart=/usr/bin/java -Xmx512m -Xms256m -jar target/DirectSMTPServer-1.0-SNAPSHOT.jar
+Environment="SMTP_HOSTNAME=$SUBDOMAIN"
+Environment="SMTP_PORT=587"
+Environment="CERT_PATH=$APP_DIR/src/main/resources/direct_cert.p12"
+Environment="CERT_PASSWORD=directsmtp2024"
+Environment="JAVA_HOME=/usr/lib/jvm/java-17-amazon-corretto"
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+    # Reload systemd and enable service
+    sudo systemctl daemon-reload
+    sudo systemctl enable directsmtp
+    
+    echo "Systemd service created!"
+}
+
+# Configure firewall
+configure_firewall() {
+    echo "Configuring firewall..."
+    
+    # Install and configure firewalld
+    sudo yum install -y firewalld
+    sudo systemctl enable firewalld
+    sudo systemctl start firewalld
+    
+    # Open required ports
+    sudo firewall-cmd --permanent --add-port=587/tcp
+    sudo firewall-cmd --permanent --add-port=80/tcp
+    sudo firewall-cmd --permanent --add-port=443/tcp
+    sudo firewall-cmd --permanent --add-service=ssh
+    
+    # Reload firewall
+    sudo firewall-cmd --reload
+    
+    echo "Firewall configured!"
+}
+
+# Start application
+start_application() {
+    echo "Starting DirectSMTP Server..."
+    
+    sudo systemctl start directsmtp
+    sudo systemctl status directsmtp
+    
+    echo "Checking if service is running..."
+    sleep 5
+    
+    if sudo systemctl is-active --quiet directsmtp; then
+        echo "✅ DirectSMTP Server started successfully!"
+        echo "Service is running on port 587"
+    else
+        echo "❌ Failed to start DirectSMTP Server"
+        echo "Check logs with: sudo journalctl -u directsmtp -f"
+    fi
+}
+
+# Test deployment
+test_deployment() {
+    echo "Testing deployment..."
+    
+    # Test port connectivity
+    if nc -z localhost 587; then
+        echo "✅ Port 587 is open and listening"
+    else
+        echo "❌ Port 587 is not accessible"
+    fi
+    
+    # Test SMTP greeting
+    echo "Testing SMTP greeting..."
+    timeout 5 nc localhost 587 < /dev/null
+    
+    echo "Check logs with: sudo journalctl -u directsmtp -f"
+}
+
+# Main deployment function
+deploy_all() {
+    echo "Starting full deployment..."
+    
+    install_dependencies
+    setup_application_user
+    deploy_application
+    setup_ssl_certificate
+    create_systemd_service
+    configure_firewall
+    start_application
+    test_deployment
+    
+    echo ""
+    echo "=== Deployment Complete! ==="
+    echo "Server: $SUBDOMAIN:587"
+    echo "SSL Certificate: Let's Encrypt"
+    echo "Service Status: sudo systemctl status directsmtp"
+    echo "Logs: sudo journalctl -u directsmtp -f"
+    echo ""
+    echo "Next steps:"
+    echo "1. Configure DNS records"
+    echo "2. Test email delivery"
+    echo "3. Monitor logs for any issues"
+}
+
+# Menu
+echo "Choose deployment option:"
+echo "1. Install dependencies only"
+echo "2. Setup application user"
+echo "3. Deploy application code"
+echo "4. Setup SSL certificate"
+echo "5. Create systemd service"
+echo "6. Configure firewall"
+echo "7. Start application"
+echo "8. Test deployment"
+echo "9. Full deployment (all steps)"
+echo ""
+
+read -p "Enter choice (1-9): " choice
+
+case $choice in
+    1) install_dependencies ;;
+    2) setup_application_user ;;
+    3) deploy_application ;;
+    4) setup_ssl_certificate ;;
+    5) create_systemd_service ;;
+    6) configure_firewall ;;
+    7) start_application ;;
+    8) test_deployment ;;
+    9) deploy_all ;;
+    *) echo "Invalid choice" ;;
+esac
