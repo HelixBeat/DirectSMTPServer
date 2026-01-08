@@ -82,21 +82,45 @@ deploy_application() {
     echo "Building application..."
     mvn clean package -DskipTests
     
-    if [ ! -f "target/DirectSMTPServer-1.0-SNAPSHOT.jar" ]; then
+    # Check for the shaded JAR (with dependencies)
+    if [ -f "target/DirectSMTPServer-1.0-SNAPSHOT.jar" ]; then
+        # Check if it's the shaded version (larger file)
+        JAR_SIZE=$(stat -f%z "target/DirectSMTPServer-1.0-SNAPSHOT.jar" 2>/dev/null || stat -c%s "target/DirectSMTPServer-1.0-SNAPSHOT.jar" 2>/dev/null)
+        if [ "$JAR_SIZE" -gt 1000000 ]; then
+            echo "✅ Build successful - Shaded JAR file created (${JAR_SIZE} bytes)"
+        else
+            echo "⚠️  Warning: JAR file seems small (${JAR_SIZE} bytes) - may not contain dependencies"
+            echo "Checking for original JAR..."
+            if [ -f "target/original-DirectSMTPServer-1.0-SNAPSHOT.jar" ]; then
+                echo "✅ Found both original and shaded JARs"
+            else
+                echo "❌ Maven Shade plugin may not be working correctly"
+                exit 1
+            fi
+        fi
+    else
         echo "❌ Build failed - JAR file not found"
         exit 1
     fi
-    
-    echo "✅ Build successful - JAR file created"
     
     # Copy to application directory
     echo "Copying files to $APP_DIR..."
     sudo cp -r * $APP_DIR/
     sudo chown -R $SERVICE_USER:$SERVICE_USER $APP_DIR
     
-    # Verify JAR file was copied
+    # Verify the correct JAR file was copied and has dependencies
     if [ -f "$APP_DIR/target/DirectSMTPServer-1.0-SNAPSHOT.jar" ]; then
-        echo "✅ JAR file successfully deployed to $APP_DIR/target/"
+        JAR_SIZE=$(stat -c%s "$APP_DIR/target/DirectSMTPServer-1.0-SNAPSHOT.jar" 2>/dev/null)
+        echo "✅ JAR file deployed: ${JAR_SIZE} bytes"
+        
+        # Verify it contains dependencies
+        if jar tf "$APP_DIR/target/DirectSMTPServer-1.0-SNAPSHOT.jar" | grep -q "org/subethamail" 2>/dev/null; then
+            echo "✅ Dependencies verified in deployed JAR"
+        else
+            echo "❌ Dependencies missing in deployed JAR!"
+            echo "This suggests the wrong JAR was copied or Maven Shade failed"
+            exit 1
+        fi
     else
         echo "❌ Failed to copy JAR file"
         exit 1
