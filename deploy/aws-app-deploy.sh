@@ -200,7 +200,7 @@ EOF
     sudo systemctl daemon-reload
     sudo systemctl enable directsmtp
     
-    echo "✅ Systemd service created with root privileges for port 587!"
+    echo "✅ Systemd service created with root privileges for ports 25 and 587!"
 }
 
 # Configure firewall
@@ -213,6 +213,7 @@ configure_firewall() {
     sudo systemctl start firewalld
     
     # Open required ports
+    sudo firewall-cmd --permanent --add-port=25/tcp
     sudo firewall-cmd --permanent --add-port=587/tcp
     sudo firewall-cmd --permanent --add-port=80/tcp
     sudo firewall-cmd --permanent --add-port=443/tcp

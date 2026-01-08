@@ -82,22 +82,43 @@ public class DirectSMTPServer {
             }
         };
 
-        SMTPServer server = new SMTPServer(new SimpleMessageListenerAdapter(listener));
-        server.setPort(587);
-        server.setHostName("direct.if-else.click");
+        // Create server for port 587 (submission port with required TLS)
+        SMTPServer server587 = new SMTPServer(new SimpleMessageListenerAdapter(listener));
+        server587.setPort(587);
+        server587.setHostName("direct.if-else.click");
         
         if (sslEnabled) {
-            server.setEnableTLS(true);
-            server.setRequireTLS(true);
-            System.out.println("🔒 TLS/SSL enabled and required");
+            server587.setEnableTLS(true);
+            server587.setRequireTLS(true);
+            System.out.println("🔒 Port 587: TLS/SSL enabled and required");
         } else {
-            server.setEnableTLS(false);
-            server.setRequireTLS(false);
-            System.out.println("⚠️  TLS/SSL disabled - server running in plain text mode");
+            server587.setEnableTLS(false);
+            server587.setRequireTLS(false);
+            System.out.println("⚠️  Port 587: TLS/SSL disabled - running in plain text mode");
         }
 
-        server.start();
-        System.out.println("🚀 DirectSMTP Server running on port 587...");
+        // Create server for port 25 (standard SMTP port with optional TLS)
+        SMTPServer server25 = new SMTPServer(new SimpleMessageListenerAdapter(listener));
+        server25.setPort(25);
+        server25.setHostName("direct.if-else.click");
+        
+        if (sslEnabled) {
+            server25.setEnableTLS(true);
+            server25.setRequireTLS(false); // Port 25 should not require TLS for server-to-server communication
+            System.out.println("🔒 Port 25: TLS/SSL enabled but optional");
+        } else {
+            server25.setEnableTLS(false);
+            server25.setRequireTLS(false);
+            System.out.println("⚠️  Port 25: TLS/SSL disabled - running in plain text mode");
+        }
+
+        // Start both servers
+        server587.start();
+        server25.start();
+        
+        System.out.println("🚀 DirectSMTP Server running on ports 25 and 587...");
+        System.out.println("📧 Port 25: Standard SMTP (TLS optional)");
+        System.out.println("📧 Port 587: Mail submission (TLS required)");
         System.out.println("📧 Accepting emails for: @direct.if-else.click and @if-else.click");
         
         if (!sslEnabled) {
