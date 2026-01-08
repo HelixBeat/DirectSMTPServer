@@ -65,7 +65,8 @@ public class DirectSMTPServer {
         SimpleMessageListener listener = new SimpleMessageListener() {
             @Override
             public boolean accept(String from, String recipient) {
-                return recipient.endsWith("@direct.if-else.click");
+                return recipient.endsWith("@direct.if-else.click") || 
+                       recipient.endsWith("@if-else.click");
             }
 
             @Override
@@ -97,7 +98,7 @@ public class DirectSMTPServer {
 
         server.start();
         System.out.println("🚀 DirectSMTP Server running on port 587...");
-        System.out.println("📧 Accepting emails for: @direct.if-else.click");
+        System.out.println("📧 Accepting emails for: @direct.if-else.click and @if-else.click");
         
         if (!sslEnabled) {
             System.out.println("");
