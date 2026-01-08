@@ -181,7 +181,7 @@ Type=simple
 User=$SERVICE_USER
 Group=$SERVICE_USER
 WorkingDirectory=$APP_DIR
-ExecStart=/usr/bin/java -Xmx512m -Xms256m -jar target/DirectSMTPServer-1.0-SNAPSHOT.jar
+ExecStart=sudo /usr/bin/java -Xmx512m -Xms256m -jar target/DirectSMTPServer-1.0-SNAPSHOT.jar
 Environment="SMTP_HOSTNAME=$SUBDOMAIN"
 Environment="SMTP_PORT=587"
 Environment="CERT_PATH=$APP_DIR/src/main/resources/direct_cert.p12"
