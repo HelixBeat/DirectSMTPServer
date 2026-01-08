@@ -178,10 +178,10 @@ After=network.target
 
 [Service]
 Type=simple
-User=$SERVICE_USER
-Group=$SERVICE_USER
+User=root
+Group=root
 WorkingDirectory=$APP_DIR
-ExecStart=sudo /usr/bin/java -Xmx512m -Xms256m -jar target/DirectSMTPServer-1.0-SNAPSHOT.jar
+ExecStart=/usr/bin/java -Xmx512m -Xms256m -jar target/DirectSMTPServer-1.0-SNAPSHOT.jar
 Environment="SMTP_HOSTNAME=$SUBDOMAIN"
 Environment="SMTP_PORT=587"
 Environment="CERT_PATH=$APP_DIR/src/main/resources/direct_cert.p12"
@@ -200,7 +200,7 @@ EOF
     sudo systemctl daemon-reload
     sudo systemctl enable directsmtp
     
-    echo "Systemd service created!"
+    echo "✅ Systemd service created with root privileges for port 587!"
 }
 
 # Configure firewall
@@ -236,10 +236,13 @@ start_application() {
     
     if sudo systemctl is-active --quiet directsmtp; then
         echo "✅ DirectSMTP Server started successfully!"
-        echo "Service is running on port 587"
+        echo "Service is running on port 587 with root privileges"
     else
         echo "❌ Failed to start DirectSMTP Server"
         echo "Check logs with: sudo journalctl -u directsmtp -f"
+        echo ""
+        echo "Manual start option:"
+        echo "sudo java -jar $APP_DIR/target/DirectSMTPServer-1.0-SNAPSHOT.jar"
     fi
 }
 
@@ -259,6 +262,16 @@ test_deployment() {
     timeout 5 nc localhost 587 < /dev/null
     
     echo "Check logs with: sudo journalctl -u directsmtp -f"
+}
+
+# Manual start for testing
+manual_start() {
+    echo "Starting DirectSMTP Server manually with sudo..."
+    echo "This will run in the foreground. Press Ctrl+C to stop."
+    echo ""
+    
+    cd $APP_DIR
+    sudo java -jar target/DirectSMTPServer-1.0-SNAPSHOT.jar
 }
 
 # Main deployment function
@@ -297,10 +310,11 @@ echo "5. Create systemd service"
 echo "6. Configure firewall"
 echo "7. Start application"
 echo "8. Test deployment"
-echo "9. Full deployment (all steps)"
+echo "9. Manual start (foreground with sudo)"
+echo "10. Full deployment (all steps)"
 echo ""
 
-read -p "Enter choice (1-9): " choice
+read -p "Enter choice (1-10): " choice
 
 case $choice in
     1) install_dependencies ;;
@@ -311,6 +325,7 @@ case $choice in
     6) configure_firewall ;;
     7) start_application ;;
     8) test_deployment ;;
-    9) deploy_all ;;
+    9) manual_start ;;
+    10) deploy_all ;;
     *) echo "Invalid choice" ;;
 esac
