@@ -55,39 +55,55 @@ setup_application_user() {
 deploy_application() {
     echo "Deploying application code..."
     
-    # Create temporary directory for deployment
-    TEMP_DIR="/tmp"
-    mkdir -p $TEMP_DIR
-    cd $TEMP_DIR
+    # Set source directory
+    SOURCE_DIR="/home/ec2-user/app-deploy/DirectSMTPServer"
     
-    # You'll need to upload your code here
-    echo "Please upload your DirectSMTPServer code to this instance."
-    echo "You can use scp or git clone:"
-    echo ""
-    echo "Option 1 - SCP from local machine:"
-    echo "scp -i your-key.pem -r DirectSMTPServer/ ec2-user@$(curl -s http://169.254.169.254/latest/meta-data/public-ipv4):$TEMP_DIR/"
-    echo ""
-    echo "Option 2 - Git clone (if you have a repository):"
-    echo "git clone https://github.com/yourusername/DirectSMTPServer.git"
-    echo ""
-    
-    read -p "Press Enter after uploading the code..."
-    
-    # Find the application directory
-    if [ -d "DirectSMTPServer" ]; then
-        cd DirectSMTPServer
-    else
-        echo "DirectSMTPServer directory not found. Please ensure code is uploaded."
+    # Check if source directory exists
+    if [ ! -d "$SOURCE_DIR" ]; then
+        echo "❌ Source directory not found: $SOURCE_DIR"
+        echo ""
+        echo "Please ensure your DirectSMTPServer code is uploaded to:"
+        echo "$SOURCE_DIR"
+        echo ""
+        echo "You can upload using:"
+        echo "scp -i directsmtp-key.pem -r DirectSMTPServer/ ec2-user@$(curl -s http://169.254.169.254/latest/meta-data/public-ipv4):/home/ec2-user/app-deploy/"
+        echo ""
+        echo "Or clone from GitHub:"
+        echo "mkdir -p /home/ec2-user/app-deploy"
+        echo "cd /home/ec2-user/app-deploy"
+        echo "git clone https://github.com/yourusername/DirectSMTPServer.git"
         exit 1
     fi
+    
+    echo "✅ Found source code at: $SOURCE_DIR"
+    cd $SOURCE_DIR
     
     # Build application
     echo "Building application..."
     mvn clean package -DskipTests
     
+    if [ ! -f "target/DirectSMTPServer-1.0-SNAPSHOT.jar" ]; then
+        echo "❌ Build failed - JAR file not found"
+        exit 1
+    fi
+    
+    echo "✅ Build successful - JAR file created"
+    
     # Copy to application directory
+    echo "Copying files to $APP_DIR..."
     sudo cp -r * $APP_DIR/
     sudo chown -R $SERVICE_USER:$SERVICE_USER $APP_DIR
+    
+    # Verify JAR file was copied
+    if [ -f "$APP_DIR/target/DirectSMTPServer-1.0-SNAPSHOT.jar" ]; then
+        echo "✅ JAR file successfully deployed to $APP_DIR/target/"
+    else
+        echo "❌ Failed to copy JAR file"
+        exit 1
+    fi
+    
+    echo "✅ Application deployed successfully!"
+}
     
     echo "Application deployed successfully!"
 }
