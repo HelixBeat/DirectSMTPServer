@@ -33,11 +33,18 @@ public class DirectSMTPServer {
                 KeyStore ks = KeyStore.getInstance("PKCS12");
                 ks.load(new FileInputStream(certPath), certPassword.toCharArray());
 
-                KeyManagerFactory kmf = KeyManagerFactory.getInstance("SunX509");
+                KeyManagerFactory kmf = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm());
                 kmf.init(ks, certPassword.toCharArray());
 
-                sslContext = SSLContext.getInstance("TLSv1.2");
+                sslContext = SSLContext.getInstance("TLS");
                 sslContext.init(kmf.getKeyManagers(), null, null);
+                
+                // Set as default SSL context for the JVM
+                SSLContext.setDefault(sslContext);
+                
+                // Configure supported protocols and cipher suites for better compatibility
+                System.setProperty("https.protocols", "TLSv1.2,TLSv1.3");
+                System.setProperty("jdk.tls.client.protocols", "TLSv1.2,TLSv1.3");
                 
                 sslEnabled = true;
                 System.out.println("✅ SSL certificate loaded successfully");
