@@ -15,8 +15,8 @@ public class DirectSMTPServer {
     public static void main(String[] args) throws Exception {
         
         // Check for SSL certificate file
-        String certPath = "src/main/resources/direct_cert.p12";
-        String certPassword = "password"; // Updated to match deployment script
+        String certPath = "src/main/resources/direct_cert1.p12";
+        String certPassword = "directsmtp2024"; // Updated to match deployment script
         
         // Try alternative paths for production deployment
         if (!new File(certPath).exists()) {
