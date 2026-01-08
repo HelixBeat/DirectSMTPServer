@@ -16,7 +16,7 @@ public class DirectSMTPServer {
         
         // Check for SSL certificate file
         String certPath = "src/main/resources/direct_cert.p12";
-        String certPassword = "directsmtp2024"; // Updated to match deployment script
+        String certPassword = "password"; // Updated to match deployment script
         
         // Try alternative paths for production deployment
         if (!new File(certPath).exists()) {
@@ -25,7 +25,7 @@ public class DirectSMTPServer {
         
         SSLContext sslContext = null;
         boolean sslEnabled = false;
-        
+        System.out.println(" SSL certificate Available : "+ certPath+ ", Exists -"+ new File(certPath).exists());
         if (new File(certPath).exists()) {
             try {
                 System.out.println("Loading SSL certificate from: " + certPath);
