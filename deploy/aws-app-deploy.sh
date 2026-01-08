@@ -104,9 +104,6 @@ deploy_application() {
     
     echo "✅ Application deployed successfully!"
 }
-    
-    echo "Application deployed successfully!"
-}
 
 # Setup SSL certificate with Let's Encrypt
 setup_ssl_certificate() {
